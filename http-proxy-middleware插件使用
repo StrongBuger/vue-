@@ -1,0 +1,220 @@
+用于把请求代理转发到其他服务器的中间件
+
+// proxy 中间件的选择项
+var options = {
+        target: 'http://www.example.org', // 目标服务器 host
+        changeOrigin: true,               // 默认false，是否需要改变原始主机头为目标URL
+        ws: true,                         // 是否代理websockets
+        pathRewrite: {
+            '^/api/old-path' : '/api/new-path',     // 重写请求，比如我们源访问的是api/old-path，那么请求会被解析为/api/new-path
+            '^/api/remove/path' : '/path'           // 同上
+        },
+        router: {
+            // 如果请求主机 == 'dev.localhost:3000',
+            // 重写目标服务器 'http://www.example.org' 为 'http://localhost:8000'
+            'dev.localhost:3000' : 'http://localhost:8000'
+        }
+    };
+
+// 创建代理
+var exampleProxy = proxy(options);
+
+// 使用代理
+var app = express();
+    app.use('/api', exampleProxy);
+    app.listen(3000);
+    
+    
+
+请求http://localhost:8000/api相当于请求http://localhost:8001/api。
+
+var express = require('express');
+var proxy = require('http-proxy-middleware');
+var app = express();
+app.use('/api', proxy({target: 'http://localhost:8001/', changeOrigin: true}));
+app.listen(8000);
+
+使发到8000端口的/api请求转发到了8001端口
+
+安装中间件
+npm install --save-dev http-proxy-middleware
+var proxy = require('http-proxy-middleware');
+
+var apiProxy = proxy('/api', {target: 'http://www.example.org'});
+//                   \____/   \_____________________________/
+//                     |                    |
+//                需要转发的请求           目标服务器
+
+// 'apiProxy' 现在已经准备作为一个中间件了。
+
+proxy(uri [, config])
+// 上例的简洁写法
+var apiProxy = proxy('http://www.example.org/api');
+
+举例
+// 引用依赖
+var express = require('express');
+var proxy = require('http-proxy-middleware');
+
+// proxy 中间件的选择项
+var options = {
+        target: 'http://www.example.org', // 目标服务器 host
+        changeOrigin: true,               // 默认false，是否需要改变原始主机头为目标URL
+        ws: true,                         // 是否代理websockets
+        pathRewrite: {
+            '^/api/old-path' : '/api/new-path',     // 重写请求，比如我们源访问的是api/old-path，那么请求会被解析为/api/new-path
+            '^/api/remove/path' : '/path'           // 同上
+        },
+        router: {
+            // 如果请求主机 == 'dev.localhost:3000',
+            // 重写目标服务器 'http://www.example.org' 为 'http://localhost:8000'
+            'dev.localhost:3000' : 'http://localhost:8000'
+        }
+    };
+
+// 创建代理
+var exampleProxy = proxy(options);
+
+// 使用代理
+var app = express();
+    app.use('/api', exampleProxy);
+    app.listen(3000);
+
+上下文匹配
+假如你不能使用主机的路径参数来创建代理，或者你需要更灵活的方式来创建代理的话，这里提供了选择性的方式来决定哪些请求会被转发；
+ foo://example.com:8042/over/there?name=ferret#nose
+ \_/  \______________/\_________/ \_________/ \__/
+  |           |            |            |       |
+协议          主机         路径          查询     碎片
+
+
+路径匹配
+
+
+proxy({...})：匹配任何路径，所有请求将被转发；
+
+proxy('/', {...}) ：匹配任何路径，所有请求将被转发；
+
+proxy('/api', {...})：匹配/api开头的请求
+
+
+多重匹配
+
+proxy(['/api', '/ajax', '/someotherpath'], {...})
+
+
+通配符路径匹配
+细粒度的匹配可以使用通配符匹配，Glob 匹配模式由 micromatch创造，访问 micromatch or glob 查找更多用例。
+
+
+proxy('**', {...}) 匹配任何路径，所有请求将被转发；
+
+proxy('**/*.html', {...}) 匹配任何以.html结尾的请求；
+
+proxy('/*.html', {...}) 匹配当前路径下以html结尾的请求；
+
+proxy('/api/**/*.html', {...}) 匹配/api下以html为结尾的请求；
+
+proxy(['/api/**', '/ajax/**'], {...}) 组合
+
+proxy(['/api/**', '!**/bad.json'], {...}) 不包括**/bad.json
+
+
+
+自定义匹配
+/**
+ * @return {Boolean}
+ */
+var filter = function (pathname, req) {
+    return (pathname.match('^/api') && req.method === 'GET');
+};
+
+var apiProxy = proxy(filter, {target: 'http://www.example.org'})
+
+
+
+选项
+http-proxy-middleware options
+
+option.pathRewrite：对象/函数，重写目标url路径
+
+// 重写
+pathRewrite: {'^/old/api' : '/new/api'}
+
+// 移除
+pathRewrite: {'^/remove/api' : ''}
+
+// 添加
+pathRewrite: {'^/' : '/basepath/'}
+
+// 自定义
+pathRewrite: function (path, req) { return path.replace('/api', '/base/api') }
+
+
+option.router：对象/函数，重新指定请求转发目标
+
+// 使用主机或者路径进行匹配，返回最先匹配到结果
+// 所以配置的顺序很重要
+router: {
+    'integration.localhost:3000' : 'http://localhost:8001',  // host only
+    'staging.localhost:3000'     : 'http://localhost:8002',  // host only
+    'localhost:3000/api'         : 'http://localhost:8003',  // host + path
+    '/rest'                      : 'http://localhost:8004'   // path only
+}
+
+// 自定义
+router: function(req) {
+    return 'http://localhost:8004';
+}
+
+http-proxy 事件
+参照：http-proxy events
+
+option.onError:
+
+// 监听proxy的onerr事件
+proxy.on('error', function (err, req, res) {
+  res.writeHead(500, {
+    'Content-Type': 'text/plain'
+  });
+
+  res.end('Something went wrong. And we are reporting a custom error message.');
+});
+
+
+option.onProxyRes：监听proxy的回应事件
+
+proxy.on('proxyRes', function (proxyRes, req, res) {
+  console.log('RAW Response from the target', JSON.stringify(proxyRes.headers, true, 2));
+});
+
+
+option.onProxyReq：监听proxy的请求事件
+
+proxy.on('proxyReq', function onProxyReq(proxyReq, req, res) {
+    proxyReq.setHeader('x-added', 'foobar');
+});
+
+
+option.onProxyReqWs：
+
+function onProxyReqWs(proxyReq, req, socket, options, head) {
+    proxyReq.setHeader('X-Special-Proxy-Header', 'foobar');
+}
+
+
+option.onOpen：监听来自目标服务器的信息
+
+proxy.on('open', function (proxySocket) {
+  proxySocket.on('data', hybiParseAndLogMessage);
+});
+
+
+option.onClose：展示websocket链接分离
+
+proxy.on('close', function (res, socket, head) {
+  console.log('Client disconnected');
+});
+
+
+总结至简书:https://www.jianshu.com/p/a248b146c55a
