@@ -1,0 +1,13 @@
+# 全局安装vue-cli
+npm install vue-cli -g
+
+# 选择你的项目根文件夹
+# e:
+# cd vue-project
+
+# 创建webpack项目
+# vue init [vue-cli模板名称] [项目文件夹]
+vue init webpack my-project
+
+# 安装依赖
+npm install
