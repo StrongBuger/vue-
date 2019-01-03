@@ -1,3 +1,4 @@
+第一步项目的安装
 # 全局安装vue-cli
 npm install vue-cli -g
 
@@ -11,3 +12,11 @@ vue init webpack my-project
 
 # 安装依赖
 npm install
+
+第二步 解决本地调试出现的跨域问题
+
+解决该问题最好的方法是让后台同学配置CORS，或者在webpack中设置proxyTable，或者自己搭建nginx服务进行反向代理。
+webpack的proxyTable只在开发环境中有效
+在开发环境中，实际上使用的是http-proxy-middleware插件实现的代理功能
+http-proxy-middleware插件 用于把请求代理转发到其他服务器的中间件
+
